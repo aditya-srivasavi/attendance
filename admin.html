@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .login-box, .dashboard { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        th { background: black; color: white; }
+        input, button { padding: 10px; margin: 5px 0; }
+        button { background: black; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="login-box" id="loginBox">
+        <h2>Admin Login</h2>
+        <input type="password" id="password" placeholder="Enter admin password">
+        <button onclick="login()">Login</button>
+    </div>
+
+    <div class="dashboard" id="dashboard" style="display: none;">
+        <h2>Attendance Dashboard</h2>
+        <input type="text" id="search" placeholder="Search by Roll or Name" onkeyup="filterTable()">
+        <button onclick="refreshData()">Refresh</button>
+        <button onclick="exportCSV()">Export to CSV</button>
+        
+        <table id="attendanceTable">
+            <thead>
+                <tr>
+                    <th>Roll Number</th>
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const READ_KEY = "WYOH0Q37FRNFG169";
+        const CHANNEL_ID = "3196858";
+        const ADMIN_PASSWORD = "admin123"; // Change this password
+
+        function login() {
+            const password = document.getElementById('password').value;
+            if (password === ADMIN_PASSWORD) {
+                document.getElementById('loginBox').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                loadAttendance();
+            } else {
+                alert('Incorrect password!');
+            }
+        }
+
+        async function loadAttendance() {
+            try {
+                const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${READ_KEY}&results=2000`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+                
+                data.feeds.forEach(feed => {
+                    const row = `<tr>
+                        <td>${feed.field1 || ''}</td>
+                        <td>${feed.field2 || ''}</td>
+                        <td>${feed.field3 || ''}</td>
+                        <td>${feed.field4 || ''}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            } catch (error) {
+                alert('Error loading attendance data');
+            }
+        }
+
+        function filterTable() {
+            const search = document.getElementById('search').value.toLowerCase();
+            const rows = document.querySelectorAll('#attendanceTable tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(search) ? '' : 'none';
+            });
+        }
+
+        function refreshData() {
+            loadAttendance();
+        }
+
+        function exportCSV() {
+            const rows = [];
+            const headers = ['Roll Number', 'Name', 'Date', 'Time'];
+            rows.push(headers.join(','));
+            
+            document.querySelectorAll('#attendanceTable tbody tr').forEach(row => {
+                const cols = [];
+                row.querySelectorAll('td').forEach(cell => {
+                    cols.push(cell.innerText);
+                });
+                rows.push(cols.join(','));
+            });
+            
+            const csv = rows.join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+    </script>
+</body>
+</html>
